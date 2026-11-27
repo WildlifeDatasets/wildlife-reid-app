@@ -69,20 +69,19 @@ class IdentificationProgressApiTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["init"]["progress"]["stage"], "starting")
 
-    def test_dash_identification_progress_uses_compact_circular_indicators(self):
-        """Render compact circular identification progress controls instead of the older bar UI."""
-        self.workgroup.identification_init_status = "Processing"
-        self.workgroup.identification_init_message = "Encoding references"
-        self.workgroup.save()
+    def test_dashboard_reports_refresh_progress(self):
+        """Render the current refresh step and link to its task details."""
+        run = models.TaskRun.objects.create(
+            workgroup=self.workgroup, kind="identification_refresh", status="running",
+            message="Calculate missing image features",
+            result={"steps": {"features": {"status": "running", "record_id": 0}}},
+        )
 
         response = self.client.get(reverse("caidapp:dash_identities"))
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "ident-progress-dot")
-        self.assertContains(response, "--ident-progress")
-        self.assertContains(response, 'data-operation="init"')
-        self.assertNotContains(response, "Identification progress")
-        self.assertNotContains(response, "ident-progress-bar")
+        self.assertContains(response, 'id="identification-refresh-progress"')
+        self.assertContains(response, "Step 1 of 6")
+        self.assertContains(response, reverse("caidapp:task_detail", args=[run.uuid]))
 
 
 class IdentificationRunStatisticTest(TestCase):

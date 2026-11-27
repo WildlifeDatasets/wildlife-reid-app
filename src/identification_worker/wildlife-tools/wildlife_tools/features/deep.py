@@ -32,7 +32,7 @@ class DeepFeatures(FeatureExtractor):
         self.device = device
         self.model = model
 
-    def __call__(self, dataset: WildlifeDataset) -> FeatureDataset:
+    def __call__(self, dataset: WildlifeDataset, checkpoint=None) -> FeatureDataset:
         """Extract features from dataset."""
         self.model = self.model.to(self.device)
         self.model = self.model.eval()
@@ -44,12 +44,15 @@ class DeepFeatures(FeatureExtractor):
             shuffle=False,
         )
         outputs = []
-        for image, _ in tqdm(loader, mininterval=1, ncols=100):
-            with torch.no_grad():
-                output = self.model(image.to(self.device))
-                outputs.append(output.cpu())
-
-        self.model = self.model.to("cpu")
+        try:
+            for batch, (image, _) in enumerate(tqdm(loader, mininterval=1, ncols=100)):
+                if checkpoint is not None:
+                    checkpoint(batch * self.batch_size, len(dataset))
+                with torch.no_grad():
+                    output = self.model(image.to(self.device))
+                    outputs.append(output.cpu())
+        finally:
+            self.model = self.model.to("cpu")
         features = torch.cat(outputs).numpy()
 
         return FeatureDataset(metadata=dataset.metadata, features=features, col_label=dataset.col_label)

@@ -732,6 +732,8 @@ def uploads_identities(request) -> HttpResponse:
 @login_required
 def dash_identities(request) -> HttpResponse:
     """View for mediafiles not in other categories."""
+    from .identification_refresh import dashboard_progress
+
     # queryset = get_filtered_mediafiles(
     #     request.user,
     #     # contains_single_taxon=True,
@@ -753,6 +755,7 @@ def dash_identities(request) -> HttpResponse:
         dict(
             # **page_context,
             btn_styles=_single_species_button_style(request, dashboard_context["identification_stats"]),
+            refresh_progress=dashboard_progress(workgroup.pk),
             **dashboard_context,
         ),
     )
@@ -1058,9 +1061,13 @@ def _workgroup_identification_progress(workgroup: WorkGroup, operation: str) -> 
 @login_required
 def identification_progress_api(request):
     """Return initialization and identification progress for the current user's workgroup."""
+    from .identification_refresh import dashboard_progress
+
     workgroup = request.user.caiduser.workgroup
     if workgroup is None:
         return JsonResponse({"error": "No workgroup assigned."}, status=400)
+    if request.GET.get("scope") == "refresh":
+        return JsonResponse({"refresh": dashboard_progress(workgroup.pk)})
     return JsonResponse(
         {
             "init": _workgroup_identification_progress(workgroup, "init"),

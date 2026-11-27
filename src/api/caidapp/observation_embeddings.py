@@ -255,7 +255,9 @@ def enqueue_embeddings(
             status="skipped", message="Observation is missing or no longer eligible for this run."
         )
     inputs = []
-    for observation in observations.order_by("pk"):
+    for index, observation in enumerate(observations.order_by("pk")):
+        if run and index % 50 == 0 and not TaskRun.objects.filter(pk=run.pk, status="preparing").exists():
+            return None
         try:
             row = snapshot(observation)
             inputs.append(row)
@@ -315,12 +317,15 @@ def enqueue_embeddings(
 
 def store_embeddings(output, manifest_path, run_id=None):
     """Validate worker results against submitted inputs and discard stale inputs."""
+    from .embedding_runs import TERMINAL
+
     path = Path(manifest_path)
     if run_id is not None:
-        completed = TaskRun.objects.filter(pk=run_id, status__in=["succeeded", "partial", "failed"]).first()
+        completed = TaskRun.objects.filter(pk=run_id, status__in=TERMINAL).first()
         if completed:
             if (
-                completed.model_snapshot.get("generation", 0) != embedding_generation(completed.workgroup_id)
+                (completed.status == "cancelled"
+                 or completed.model_snapshot.get("generation", 0) != embedding_generation(completed.workgroup_id))
                 and path.is_file()
             ):
                 manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -347,17 +352,20 @@ def store_embeddings(output, manifest_path, run_id=None):
             images = [row["feature_image"] for row in submitted.values() if row.get("feature_image")]
             transaction.on_commit(partial(_remove_feature_images, images), robust=True)
             return {"stored": 0, "stale": len(submitted), "profile_uuid": None}
+        run = None
+        if run_id is not None:
+            run = TaskRun.objects.select_for_update().get(pk=run_id)
+            if run.status == "cancelled":
+                images = [row["feature_image"] for row in submitted.values() if row.get("feature_image")]
+                transaction.on_commit(partial(_remove_feature_images, images), robust=True)
+            if run.status in TERMINAL:
+                return run.result
         profile, _ = EmbeddingProfile.objects.get_or_create(
             fingerprint=fingerprint(spec), defaults={"specification": spec, "dimension": spec["dimension"]}
         )
         returned = {row["observation_id"]: row for row in result["embeddings"]}
         if len(returned) != len(result["embeddings"]) or not set(returned).issubset(submitted):
             raise ValidationError("Unexpected or duplicate result observations.")
-        run = None
-        if run_id is not None:
-            run = TaskRun.objects.select_for_update().get(pk=run_id)
-            if run.status in {"succeeded", "partial", "failed"}:
-                return run.result
         for observation_id, original in submitted.items():
             row = returned.get(observation_id)
             if row is None:

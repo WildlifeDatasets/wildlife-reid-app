@@ -12,6 +12,7 @@ print(f"numpy version: {np.__version__}")
 import pandas as pd
 import torch
 from celery import Celery, shared_task
+from celery.exceptions import Ignore
 from gpu_monitor import register_gpu_monitor
 from progress import ProgressReporter
 from train_model import train_identification_model
@@ -52,8 +53,8 @@ identification_worker.conf.task_track_started = True
 register_gpu_monitor(identification_worker)
 
 
-@identification_worker.task(name="compute_observation_embeddings")
-def compute_observation_embeddings(manifest_path):
+@identification_worker.task(bind=True, name="compute_observation_embeddings")
+def compute_observation_embeddings(self, manifest_path):
     """Compute missing global and ALIKED features for a set of observations.
 
     `manifest_path` points to `input.json` (UTF-8 JSON) on shared storage.
@@ -62,9 +63,18 @@ def compute_observation_embeddings(manifest_path):
     computed features and their profile to `output.json` next to the manifest
     and return its path for Django to import.
     """
-    from utils.observation_embeddings import compute_manifest
+    from utils.observation_embeddings import EmbeddingRunStopped, compute_manifest
 
-    return compute_manifest(manifest_path)
+    def report_progress(progress):
+        try:
+            self.update_state(state="PROGRESS", meta=progress)
+        except Exception:
+            logger.warning("Could not publish observation feature progress", exc_info=True)
+
+    try:
+        return compute_manifest(manifest_path, report_progress=report_progress)
+    except EmbeddingRunStopped:
+        raise Ignore() from None
 
 
 @identification_worker.task(bind=True, name="train_identification")

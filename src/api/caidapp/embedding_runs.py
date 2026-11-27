@@ -17,7 +17,7 @@ from django.utils import timezone
 from .models import AnimalObservation, EmbeddingRunItem, TaskRun, WorkGroup
 from .observation_embeddings import backfill_observations, embedding_generation
 
-TERMINAL = {"succeeded", "partial", "failed"}
+TERMINAL = {"succeeded", "partial", "failed", "cancelled"}
 TASK_STAGES = {"prepare": "Preparing inputs", "compute": "Computing image features", "store": "Saving results"}
 
 
@@ -70,18 +70,18 @@ def record_failure(run_id, stage, task_id, *, error=None, state="FAILURE"):
     fail_run(run_id, f"{diagnostic['stage_label']} failed. {diagnostic['reason']}", diagnostic=diagnostic)
 
 
-def fail_run(run_id, message, *, diagnostic=None):
-    """Record a public failure without exposing worker tracebacks or paths."""
+def fail_run(run_id, message, *, diagnostic=None, status="failed"):
+    """Record a failure or cancellation without exposing worker tracebacks or paths."""
     with transaction.atomic():
         run = TaskRun.objects.select_for_update().filter(pk=run_id).first()
         if run is None or run.status in TERMINAL:
             return
-        run.items.filter(status="pending").update(status="failed", message=message)
+        run.items.filter(status="pending").update(status=status, message=message)
         result = dict(Counter(run.items.values_list("status", flat=True)))
         if diagnostic:
             result["failure"] = diagnostic
         TaskRun.objects.filter(pk=run_id).update(
-            status="failed",
+            status=status,
             message=message,
             finished_at=timezone.now(),
             updated_at=timezone.now(),

@@ -44,7 +44,7 @@ class GlueFactoryExtractor(FeatureExtractor):
         self.model = get_model(config.name)(config)
         self.device = device
 
-    def __call__(self, dataset: WildlifeDataset):
+    def __call__(self, dataset: WildlifeDataset, checkpoint=None):
         """Extract keypoints and descriptors from dataset."""
         features = []
         loader = torch.utils.data.DataLoader(
@@ -55,19 +55,18 @@ class GlueFactoryExtractor(FeatureExtractor):
         )
 
         self.model.to(self.device)
-        for image, _ in tqdm(loader, mininterval=1, ncols=100):
-            # print(image.shape)
-            # if image.shape[2] > 2048:
-            #     image = torchvision.transforms.functional.resize(image, 2048)
-            #
-            image = image.to(self.device)
-            with torch.inference_mode():
-                output = self.model({"image": image})
-                output = {k: v.squeeze(0).cpu() for k, v in output.items()}
-                output["image_size"] = torch.tensor(image.shape[2:])
-            features.append(output)
-
-        self.model.to("cpu")
+        try:
+            for index, (image, _) in enumerate(tqdm(loader, mininterval=1, ncols=100)):
+                if checkpoint is not None:
+                    checkpoint(index, len(dataset))
+                image = image.to(self.device)
+                with torch.inference_mode():
+                    output = self.model({"image": image})
+                    output = {k: v.squeeze(0).cpu() for k, v in output.items()}
+                    output["image_size"] = torch.tensor(image.shape[2:])
+                features.append(output)
+        finally:
+            self.model.to("cpu")
         return FeatureDataset(metadata=dataset.metadata, features=features, col_label=dataset.col_label)
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
-from utils.observation_embeddings import compute_manifest, fingerprint
+from utils.observation_embeddings import EmbeddingRunStopped, compute_manifest, fingerprint
 
 
 class ObservationEncoderTests(unittest.TestCase):
@@ -56,7 +56,7 @@ class ObservationEncoderTests(unittest.TestCase):
         inference = Mock()
         inference.get_segmentation_model.return_value = "sam3"
 
-        def encode(metadata, model, weights):
+        def encode(metadata, model, weights, *, checkpoint):
             self.assertEqual(metadata["observation_id"].tolist(), [2])
             self.assertEqual(metadata["bbox_w"].tolist(), [0.3])
             metadata["image_path"] = metadata["feature_image"]
@@ -80,6 +80,30 @@ class ObservationEncoderTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Source media changed"):
                 self.run_manifest()
         inference.encode_images.assert_not_called()
+
+    def test_stopping_during_segmentation_removes_generated_crop_and_skips_output(self):
+        self.manifest["feature_config"] = {"weights_sha256": "", "segmentation": "sam3"}
+        for row in self.manifest["observations"]:
+            row["input_specification"]["bbox_cxcywh"] = [0.5, 0.5, 0.3, 0.3]
+            row["input_fingerprint"] = fingerprint(row["input_specification"])
+            row["feature_image"] = str(self.path.with_name(f"crop-{row['observation_id']}.png"))
+        crop = Path(self.manifest["observations"][0]["feature_image"])
+        inference = Mock()
+        inference.get_segmentation_model.return_value = "sam3"
+
+        def encode(metadata, model, weights, *, checkpoint):
+            checkpoint("Segmenting observations", 0, len(metadata))
+            crop.touch()
+            self.path.with_name("cancelled").touch()
+            checkpoint("Computing global embeddings", 0, len(metadata))
+
+        inference.encode_images.side_effect = encode
+        with patch.dict(sys.modules, {"utils.inference_identification": inference}):
+            with self.assertRaises(EmbeddingRunStopped):
+                self.run_manifest()
+        self.assertFalse(crop.exists())
+        self.assertFalse(self.path.with_name("output.json").exists())
+        inference.del_models.assert_called_once()
 
 
 if __name__ == "__main__":

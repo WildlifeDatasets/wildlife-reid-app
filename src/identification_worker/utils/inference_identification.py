@@ -3,6 +3,7 @@ import logging
 import os
 import traceback
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any, List, Literal, Optional, Union
 
@@ -474,13 +475,15 @@ def _get_masking_bbox(row: pd.Series, image_path: str, row_idx) -> list[int] | N
     return bbox
 
 
-def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images") -> pd.DataFrame:
+def mask_images(metadata: pd.DataFrame, tqdm_desc="Masking images", checkpoint=None) -> pd.DataFrame:
     """Mask images using the segmentation model."""
     masked_paths = []
     segmentation_backend = get_segmentation_model()
     logger.info(f"Masking images with {segmentation_backend.upper()}")
 
-    for row_idx, row in tqdm(metadata.iterrows(), total=len(metadata), desc=tqdm_desc):
+    for index, (row_idx, row) in enumerate(tqdm(metadata.iterrows(), total=len(metadata), desc=tqdm_desc)):
+        if checkpoint:
+            checkpoint("Segmenting observations", index, len(metadata))
         image_path = row["image_path"]
         feature_path = row.get("feature_image")
         bbox = _get_masking_bbox(row, image_path, row_idx)
@@ -517,12 +520,15 @@ def encode_images(
     identification_model_path: str,
     identification_model_weights_path: str = "",
     tqdm_desc="",
+    checkpoint=None,
 ) -> list:
     """Create feature vectors from given images."""
     # no need of 'global' if only reading the variable
     # global IDENTIFICATION_MODELS
+    if checkpoint:
+        checkpoint("Loading identification model")
     get_identification_model(identification_model_path, model_checkpoint=identification_model_weights_path)
-    metadata = mask_images(metadata, tqdm_desc=f"Masking images: {tqdm_desc}")
+    metadata = mask_images(metadata, tqdm_desc=f"Masking images: {tqdm_desc}", checkpoint=checkpoint)
     logger.info("Creating DataLoaders.")
 
     dataset = CarnivoreDataset(
@@ -535,8 +541,14 @@ def encode_images(
 
     logger.info("Running inference.")
     # extract global and local features
-    features_mega = IDENTIFICATION_MODELS["mega"].get_feature_dataset(dataset)
-    features_aliked = IDENTIFICATION_MODELS["aliked"].get_feature_dataset(dataset)
+    features_mega = IDENTIFICATION_MODELS["mega"].get_feature_dataset(
+        dataset, checkpoint=partial(checkpoint, "Computing global embeddings") if checkpoint else None,
+    )
+    features_aliked = IDENTIFICATION_MODELS["aliked"].get_feature_dataset(
+        dataset, checkpoint=partial(checkpoint, "Computing ALIKED features") if checkpoint else None,
+    )
+    if checkpoint:
+        checkpoint("Preparing feature output")
 
     # postprocess global features
     _features_mega = []

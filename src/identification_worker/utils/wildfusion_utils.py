@@ -16,13 +16,15 @@ def get_hits(dataset0, dataset1):
 
 
 class SimilarityPipelineExtended(SimilarityPipeline):
-    def get_feature_dataset(self, dataset: Union[WildlifeDataset, dict]) -> Union[FeatureDataset, dict]:
+    def get_feature_dataset(self, dataset: Union[WildlifeDataset, dict], checkpoint=None) -> Union[FeatureDataset, dict]:
         """Return dataset with features extracted by extractor."""
         if not isinstance(dataset, WildlifeDataset):
             return dataset
         if self.transform is not None:
             dataset.transform = self.transform
         if self.extractor is not None:
+            if checkpoint is not None:
+                return self.extractor(dataset, checkpoint=checkpoint)
             return self.extractor(dataset)
         else:
             return dataset

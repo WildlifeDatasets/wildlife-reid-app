@@ -25,9 +25,10 @@ STATUS_LABELS = {
     "succeeded": "Completed",
     "partial": "Completed with warnings",
     "failed": "Failed",
+    "cancelled": "Stopped",
     "attention": "Status could not be confirmed",
 }
-TERMINAL_STATUSES = {"succeeded", "partial", "failed"}
+TERMINAL_STATUSES = embedding_runs.TERMINAL
 ITEM_LABELS = {
     "pending": "Pending",
     "computed": "Embedding saved",
@@ -35,6 +36,7 @@ ITEM_LABELS = {
     "stale": "Input changed or was deleted",
     "skipped": "Skipped",
     "failed": "Failed",
+    "cancelled": "Stopped",
 }
 
 
@@ -251,13 +253,23 @@ def manage_workgroup_embeddings(request):
     if not caiduser.workgroup_id or not caiduser.workgroup_admin:
         return HttpResponseForbidden()
     action = request.POST.get("action")
+    if action == "stop_refresh":
+        try:
+            run_uuid = uuid.UUID(request.POST.get("run_uuid", ""))
+        except ValueError:
+            return HttpResponse(status=400)
+        identification_refresh.stop_refresh(caiduser.workgroup_id, run_uuid)
+        return redirect("caidapp:dash_identities")
     if action == "refresh":
         try:
             run = identification_refresh.request_refresh(caiduser.workgroup_id, caiduser)
         except ValidationError as exc:
             messages.error(request, exc.message)
         else:
-            return redirect("caidapp:task_detail", run_uuid=run.uuid)
+            if request.POST.get("dashboard") != "yes":
+                return redirect("caidapp:task_detail", run_uuid=run.uuid)
+        if request.POST.get("dashboard") == "yes":
+            return redirect("caidapp:dash_identities")
     elif action == "backfill":
         try:
             run = embedding_runs.create_embedding_run(

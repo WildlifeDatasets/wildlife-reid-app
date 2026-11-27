@@ -5098,8 +5098,8 @@ class IdentificationRerunTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
 
-    def test_dash_identities_shows_stop_when_init_is_scheduled(self):
-        """Show a stop action and disable duplicate initialization when initialization is scheduled."""
+    def test_dash_identities_stop_controls_refresh_instead_of_scheduled_init(self):
+        """Keep the legacy initialization status separate from the dashboard refresh controls."""
         self.workgroup.identification_init_status = "Scheduled"
         self.workgroup.identification_scheduled_init_task_id = "queued-init-task"
         self.workgroup.save(update_fields=["identification_init_status", "identification_scheduled_init_task_id"])
@@ -5107,7 +5107,8 @@ class IdentificationRerunTest(TestCase):
         response = self.client.get(reverse("caidapp:dash_identities"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, reverse("caidapp:stop_init_identification"))
+        self.assertNotContains(response, reverse("caidapp:stop_init_identification"))
+        self.assertContains(response, 'value="stop_refresh"')
         self.assertIn("disabled", response.context["btn_styles"]["init_identification"]["class"])
 
     def test_download_init_identification_csv_returns_latest_workgroup_csv(self):

@@ -1,6 +1,9 @@
 """Run and track the workgroup-wide refresh of identification results."""
 
 import logging
+from pathlib import Path
+
+from celery.result import AsyncResult
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -59,6 +62,89 @@ def request_refresh(workgroup_id, user):
     models.ObservationEmbeddingSchedule.objects.filter(workgroup=group).update(task_id=None, eta=None)
     transaction.on_commit(lambda: advance_identification_refresh.delay(run.pk), robust=True)
     return run
+
+
+@transaction.atomic
+def stop_refresh(workgroup_id, run_uuid):
+    """Stop the selected refresh and discard unfinished feature work."""
+    models.WorkGroup.objects.select_for_update().get(pk=workgroup_id)
+    run = models.TaskRun.objects.filter(
+        workgroup_id=workgroup_id, kind=KIND, uuid=run_uuid,
+    ).exclude(status__in=embedding_runs.TERMINAL).first()
+    if run is None:
+        return
+
+    message = "Identification refresh stopped."
+    for key, step in run.result["steps"].items():
+        if step["status"] == "running":
+            if key == "features":
+                child = models.TaskRun.objects.select_for_update().filter(
+                    pk=step["record_id"], workgroup_id=workgroup_id, kind="embedding",
+                ).first()
+                if child is not None:
+                    if child.status in embedding_runs.TERMINAL:
+                        step.update(status=child.status, message=child.message)
+                        continue
+                    embedding_runs.fail_run(child.pk, message, status="cancelled")
+                    if child.manifest_path:
+                        marker = Path(child.manifest_path).with_name("cancelled")
+                        transaction.on_commit(lambda: marker.touch(exist_ok=True), robust=True)
+            else:
+                message = "Identification refresh stopped. The current analysis may still finish."
+            step.update(status="cancelled", message=message)
+        elif step["status"] == "queued":
+            step.update(status="skipped", message="Identification refresh stopped.")
+    run.status = "cancelled"
+    run.message = message
+    run.finished_at = timezone.now()
+    run.save(update_fields=["status", "message", "result", "finished_at", "updated_at"])
+    models.ObservationEmbeddingSchedule.objects.filter(workgroup_id=workgroup_id).update(task_id=None, eta=None)
+
+
+def dashboard_progress(workgroup_id):
+    """Read the current refresh without serializing its observation list."""
+    run = active_refresh(workgroup_id) or models.TaskRun.objects.filter(
+        workgroup_id=workgroup_id, kind=KIND,
+    ).order_by("-created_at", "-pk").first()
+    if run is None:
+        return None
+    steps = run.result["steps"]
+    data = {
+        "uuid": str(run.uuid),
+        "status": run.status,
+        "active": run.status not in embedding_runs.TERMINAL,
+        "message": run.message,
+        "total_steps": len(STEPS),
+    }
+    if not data["active"]:
+        return data
+    for index, (key, label) in enumerate(STEPS.items(), start=1):
+        step = steps.get(key, {})
+        if step.get("status") == "running":
+            data.update(step=index, step_label=label)
+            if key == "features":
+                child = models.TaskRun.objects.filter(pk=step["record_id"], workgroup_id=workgroup_id).first()
+                if child:
+                    data["feature_status"] = child.status
+                    if child.status == "preparing":
+                        data["feature_progress"] = {
+                            "label": "Preparing inputs",
+                            "completed": child.items.exclude(input_fingerprint="", status="pending").count(),
+                            "total": child.items.count(),
+                        }
+                    if child.compute_task_id and child.status in {"queued", "running"}:
+                        try:
+                            task = AsyncResult(child.compute_task_id)
+                            if task.state == "PROGRESS" and isinstance(task.info, dict):
+                                progress = task.info
+                                if progress.get("label"):
+                                    data["feature_progress"] = {
+                                        field: progress.get(field) for field in ("label", "completed", "total")
+                                    }
+                        except Exception:
+                            logger.debug("Could not read feature progress for refresh %s.", run.pk, exc_info=True)
+            break
+    return data
 
 
 def _launch(step, group):

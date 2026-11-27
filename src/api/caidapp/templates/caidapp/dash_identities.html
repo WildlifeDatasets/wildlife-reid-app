@@ -72,37 +72,6 @@
             background-size: cover;
             background-position: center;
         }
-        .ident-progress-indicators {
-            display: inline-flex;
-            align-items: center;
-            gap: .4rem;
-            vertical-align: middle;
-        }
-        .ident-progress-dot {
-            --ident-progress: 0;
-            width: 1.65rem;
-            height: 1.65rem;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--bs-secondary-color);
-            background:
-                radial-gradient(circle, var(--bs-body-bg) 54%, transparent 56%),
-                conic-gradient(var(--bs-primary) calc(var(--ident-progress) * 1%), rgba(var(--bs-secondary-rgb), .22) 0);
-            border: 1px solid rgba(var(--bs-secondary-rgb), .28);
-            font-size: .72rem;
-            line-height: 1;
-        }
-        .ident-progress-dot.ident-progress-active {
-            color: var(--bs-primary);
-        }
-        .ident-progress-dot.ident-progress-unknown {
-            background:
-                radial-gradient(circle, var(--bs-body-bg) 54%, transparent 56%),
-                conic-gradient(rgba(var(--bs-secondary-rgb), .22) 100%, rgba(var(--bs-secondary-rgb), .22) 0);
-        }
-
     </style>
     <!--refresh every 120 s-->
     {#<meta http-equiv="refresh" content="120">#}
@@ -239,41 +208,22 @@
                     </ul>
                 </div>
 
-                {% if user.caiduser.workgroup.identification_init_status == "Processing" %}
-                    <i class="fa fa-spinner fa-spin"></i>
-                {% endif %}
                 {% if user.caiduser.workgroup_admin %}
-                    {% if user.caiduser.workgroup.identification_init_status == "Processing" or user.caiduser.workgroup.identification_init_status == "Scheduled" or user.caiduser.workgroup.identification_reid_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Scheduled" %}
-                        <a class="btn btn-danger" href="{% url 'caidapp:stop_init_identification' %}"><i
-                                class="bi bi-stop-fill "></i> Stop </a>
-                    {% endif %}
+                    <form id="identification-refresh-controls" method="post" class="d-inline"
+                          action="{% url 'caidapp:manage_workgroup_embeddings' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="dashboard" value="yes">
+                        <input type="hidden" name="run_uuid" value="{{ refresh_progress.uuid|default:'' }}">
+                        <button class="btn btn-primary {% if refresh_progress.active %}d-none{% endif %}" type="submit"
+                                name="action" value="refresh" title="Refresh identification suggestions">
+                            <i class="bi bi-play-fill" aria-hidden="true"></i> Start
+                        </button>
+                        <button class="btn btn-danger {% if not refresh_progress.active %}d-none{% endif %}" type="submit"
+                                name="action" value="stop_refresh">
+                            <i class="bi bi-stop-fill" aria-hidden="true"></i> Stop
+                        </button>
+                    </form>
                 {% endif %}
-                <span id="identification-progress-panel"
-                      class="ident-progress-indicators {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' and user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
-                      data-progress-url="{% url 'caidapp:identification_progress_api' %}">
-                    <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_init_status != 'Processing' and user.caiduser.workgroup.identification_init_status != 'Scheduled' %}d-none{% endif %}"
-                          data-operation="init"
-                          data-bs-toggle="tooltip"
-                          data-bs-title="Calculate missing image features: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}"
-                          title="Calculate missing image features: {{ user.caiduser.workgroup.identification_init_status }}{% if user.caiduser.workgroup.identification_init_status == 'Processing' and user.caiduser.workgroup.identification_init_at %} | started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_init_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_init_message %} - {{ user.caiduser.workgroup.identification_init_message }}{% endif %}">
-                        <i class="fas fa-fingerprint"></i>
-                    </span>
-                    <span class="ident-progress-dot ident-progress-unknown {% if user.caiduser.workgroup.identification_reid_status != 'Processing' and user.caiduser.workgroup.identification_reid_status != 'Scheduled' %}d-none{% endif %}"
-                          data-operation="run"
-                          data-bs-toggle="tooltip"
-                          data-bs-title="Suggest identities for unidentified observations: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}"
-                          title="Suggest identities for unidentified observations: {{ user.caiduser.workgroup.identification_reid_status }}{% if user.caiduser.workgroup.identification_reid_status == 'Processing' and user.caiduser.workgroup.identification_reid_at %} | started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %} | scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_task_id %} | task {{ user.caiduser.workgroup.identification_scheduled_run_task_id }}{% endif %}{% if user.caiduser.workgroup.identification_reid_message %} - {{ user.caiduser.workgroup.identification_reid_message }}{% endif %}">
-                        <i class="bi bi-question-circle"></i>
-                    </span>
-                </span>
-                <span class="small text-muted d-inline-block ms-2">
-                    {% if user.caiduser.workgroup.identification_init_status == "Processing" or user.caiduser.workgroup.identification_init_status == "Scheduled" %}
-                        Init {{ user.caiduser.workgroup.identification_init_status|lower }}{% if user.caiduser.workgroup.identification_init_status == "Processing" and user.caiduser.workgroup.identification_init_at %}, started {{ user.caiduser.workgroup.identification_init_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_init_eta %}, scheduled {{ user.caiduser.workgroup.identification_scheduled_init_eta|date:'Y-m-d H:i' }}{% endif %}.
-                    {% endif %}
-                    {% if user.caiduser.workgroup.identification_reid_status == "Processing" or user.caiduser.workgroup.identification_reid_status == "Scheduled" %}
-                        Run {{ user.caiduser.workgroup.identification_reid_status|lower }}{% if user.caiduser.workgroup.identification_reid_status == "Processing" and user.caiduser.workgroup.identification_reid_at %}, started {{ user.caiduser.workgroup.identification_reid_at|date:'Y-m-d H:i' }}{% endif %}{% if user.caiduser.workgroup.identification_scheduled_run_eta %}, scheduled {{ user.caiduser.workgroup.identification_scheduled_run_eta|date:'Y-m-d H:i' }}{% endif %}.
-                    {% endif %}
-                </span>
                 {% if user.caiduser.workgroup_admin %}
                     <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
                             class="bi bi-gear"></i></a>
@@ -281,6 +231,18 @@
 {#                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i#}
 {#                        class="bi bi-gear"></i></a>#}
             </div>
+        </div>
+        <div id="identification-progress-panel" class="mb-3 {% if not refresh_progress %}d-none{% endif %}"
+             data-progress-url="{% url 'caidapp:identification_progress_api' %}?scope=refresh"
+             data-task-list-url="{% url 'caidapp:task_list' %}">
+            <output id="identification-refresh-status" class="small text-body-secondary">
+                {% if refresh_progress.step %}Step {{ refresh_progress.step }} of {{ refresh_progress.total_steps }} · {% endif %}
+                {{ refresh_progress.message }}
+            </output>
+            <progress id="identification-refresh-progress" class="align-middle ms-2 d-none"
+                      aria-label="Current feature phase progress"></progress>
+            <a id="identification-refresh-task" class="small ms-2"
+               href="{% if refresh_progress %}{% url 'caidapp:task_detail' refresh_progress.uuid %}{% else %}{% url 'caidapp:task_list' %}{% endif %}">Task details</a>
         </div>
         <div class="row">
             <div class="col-md-4">
@@ -626,70 +588,55 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
     <script src="{% static 'caidapp/uploads.js' %}"></script>
     <script>
 
-        document.addEventListener("DOMContentLoaded", function () {
-            // spustí první dotaz po načtení stránky
-            checkIdentificationProgress();
+        document.addEventListener("DOMContentLoaded", async function pollIdentificationRefresh() {
+            const panel = document.getElementById("identification-progress-panel");
+            if (!panel) return;
+            let interval = 15000;
+            try {
+                const response = await fetch(panel.dataset.progressUrl, {cache: "no-store"});
+                if (!response.ok) throw new Error("Could not load identification progress");
+                const {refresh} = await response.json();
+                panel.classList.toggle("d-none", !refresh);
+
+                const controls = document.getElementById("identification-refresh-controls");
+                if (controls) {
+                    controls.querySelector('[value="refresh"]').classList.toggle("d-none", !!refresh?.active);
+                    controls.querySelector('[value="stop_refresh"]').classList.toggle("d-none", !refresh?.active);
+                    controls.elements.run_uuid.value = refresh?.uuid || "";
+                }
+
+                if (refresh) {
+                    interval = refresh.active ? 5000 : 15000;
+                    const parts = [refresh.step ? `Step ${refresh.step} of ${refresh.total_steps} · ${refresh.step_label}` : refresh.message];
+                    const phase = refresh.feature_progress;
+                    const total = phase?.total;
+                    const hasCount = Number.isInteger(total) && total > 0 && Number.isInteger(phase?.completed);
+                    if (phase) {
+                        parts.push(hasCount ? `${phase.label} (${phase.completed.toLocaleString()} / ${total.toLocaleString()})` : phase.label);
+                    } else if (refresh.feature_status === "finalizing") {
+                        parts.push("Saving results");
+                    } else if (refresh.feature_status === "attention") {
+                        parts.push("Status could not be confirmed");
+                    }
+                    const status = document.getElementById("identification-refresh-status");
+                    const description = parts.join(" · ");
+                    if (status.textContent !== description) status.textContent = description;
+                    const progress = document.getElementById("identification-refresh-progress");
+                    progress.classList.toggle("d-none", !refresh.active);
+                    if (hasCount) {
+                        progress.max = total;
+                        progress.value = phase.completed;
+                    } else {
+                        progress.removeAttribute("value");
+                    }
+                    document.getElementById("identification-refresh-task").href =
+                        panel.dataset.taskListUrl + refresh.uuid + "/";
+                }
+            } catch (error) {
+                console.error(error);
+            }
+            setTimeout(pollIdentificationRefresh, interval);
         });
-
-        function checkIdentificationProgress() {
-            const panel = document.getElementById('identification-progress-panel');
-            if (!panel) {
-                return;
-            }
-            fetch(panel.dataset.progressUrl)
-                .then(response => response.json())
-                .then(data => {
-                    const initActive = updateIdentificationProgressRow(panel, 'init', data.init);
-                    const runActive = updateIdentificationProgressRow(panel, 'run', data.run);
-                    const anyActive = initActive || runActive;
-                    panel.classList.toggle('d-none', !anyActive);
-                    setTimeout(checkIdentificationProgress, anyActive ? 5000 : 15000);
-                })
-                .catch(error => {
-                    console.error(error);
-                    setTimeout(checkIdentificationProgress, 20000);
-                });
-        }
-
-        function updateIdentificationProgressRow(panel, operation, item) {
-            const dot = panel.querySelector('.ident-progress-dot[data-operation="' + operation + '"]');
-            if (!dot || !item) {
-                return false;
-            }
-            const active = item.status === 'Processing' || item.status === 'Scheduled';
-            dot.classList.toggle('d-none', !active);
-
-            const progress = item.progress;
-            const percent = progress && progress.percent !== null ? progress.percent : 0;
-            const message = progress ? progress.message : (item.message || '');
-            const label = operation === 'init' ? 'Calculate missing image features' : 'Suggest identities for unidentified observations';
-            const details = [];
-            if (item.started_at) details.push('started ' + formatIdentificationDate(item.started_at));
-            if (item.eta) details.push('scheduled ' + formatIdentificationDate(item.eta));
-            if (item.task_state) details.push('state ' + item.task_state);
-            if (item.task_id) details.push('task ' + item.task_id);
-            const detailText = details.length ? ' | ' + details.join(' | ') : '';
-            const tooltip = percent ? label + ': ' + percent + '% - ' + message + detailText : label + ': ' + (item.status || '') + detailText + (message ? ' - ' + message : '');
-            dot.style.setProperty('--ident-progress', percent);
-            dot.classList.toggle('ident-progress-active', active);
-            dot.classList.toggle('ident-progress-unknown', !percent);
-            dot.setAttribute('title', tooltip);
-            dot.setAttribute('data-bs-title', tooltip);
-            const oldTooltip = bootstrap.Tooltip.getInstance(dot);
-            if (oldTooltip) {
-                oldTooltip.dispose();
-            }
-            new bootstrap.Tooltip(dot);
-            return active;
-        }
-
-        function formatIdentificationDate(value) {
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) {
-                return value;
-            }
-            return date.toLocaleString();
-        }
     </script>
 
 {% endblock %}
