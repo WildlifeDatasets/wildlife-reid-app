@@ -4271,9 +4271,9 @@ def prepare_observation_download(request: HttpRequest) -> HttpResponse:
 @login_required
 def observations(request: HttpRequest) -> HttpResponse:
     """Review individual animal observations, optionally grouped by their context."""
-    group_by = request.GET.get("group", "sequence")
+    group_by = request.GET.get("group")
     if group_by not in {"sequence", "mediafile", "identity", "none"}:
-        group_by = "sequence"
+        group_by = "mediafile"
     view_mode = request.GET.get("view", "cards")
     if view_mode not in {"cards", "large_cards", "list"}:
         view_mode = "cards"

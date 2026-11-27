@@ -195,7 +195,7 @@ class ObservationGroupSummaryTest(TestCase):
 
     def test_summary_excludes_sibling_observations_filtered_by_identity(self):
         """A known-identity filter must not count unidentified siblings in the same file."""
-        response = self.client.get(reverse("caidapp:observations"), {"identity": self.identity.pk})
+        response = self.client.get(reverse("caidapp:observations"), {"group": "sequence", "identity": self.identity.pk})
         summary = response.context["observation_groups"][0]["individuals_summary"]
         self.assertEqual(summary["minimum"], 1)
         self.assertTrue(summary["is_exact"])
@@ -205,7 +205,7 @@ class ObservationGroupSummaryTest(TestCase):
         """A sequence continuing on another page must not silently summarize hidden observations."""
         for _ in range(23):
             AnimalObservationFactory(mediafile=self.first, identity=None, taxon=self.taxon)
-        response = self.client.get(reverse("caidapp:observations"), {"per_page": 24})
+        response = self.client.get(reverse("caidapp:observations"), {"group": "sequence", "per_page": 24})
         group = response.context["observation_groups"][0]
         self.assertEqual(len(group["observations"]), 24)
         self.assertEqual(group["individuals_summary"]["unidentified_observations"], 23)

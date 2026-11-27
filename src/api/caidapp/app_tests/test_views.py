@@ -3312,7 +3312,7 @@ class ObservationViewTest(TestCase):
         self.client.login(username=self.user.username, password="test123")
 
     def test_observations_view_lists_each_observation_separately(self):
-        """Render distinct observation cards with visual grouping and explicit action-scope controls."""
+        """Render distinct observation cards grouped by media file with explicit action-scope controls."""
         archive = UploadedArchiveFactory(owner=self.caiduser)
         sequence = SequenceFactory(uploaded_archive=archive, local_id=22)
         mediafile = MediaFileFactory(parent=archive, sequence=sequence, original_filename="three-animals.jpg")
@@ -3326,9 +3326,9 @@ class ObservationViewTest(TestCase):
         response = self.client.get(reverse("caidapp:observations"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["group_by"], "mediafile")
         self.assertContains(response, f'id="observation-{first.id}"')
         self.assertContains(response, f'id="observation-{second.id}"')
-        self.assertContains(response, "Sequence 22")
         self.assertContains(response, "observation-bbox")
         self.assertContains(response, "syncObservationMediaPreview")
         self.assertContains(response, f"#observation-{first.id}")
@@ -3380,7 +3380,7 @@ class ObservationViewTest(TestCase):
         self.assertContains(response, f'data-sequence-id="{sequence.id}"')
         self.assertNotContains(response, "Observation selection")
         self.assertNotContains(response, "Observation fields")
-        self.assertContains(response, 'title="2 observations grouped by Sequence 22 · 1 media file on this page"')
+        self.assertContains(response, 'title="2 observations grouped by three-animals.jpg · 1 media file on this page"')
         self.assertContains(response, 'class="observation-group-controls"', count=1)
         self.assertNotContains(response, "observation-group-toggle-label")
         self.assertContains(
@@ -3538,9 +3538,10 @@ class ObservationViewTest(TestCase):
             )
         )
 
-        response = self.client.get(reverse("caidapp:observations"), {"sort": "captured_desc"})
+        response = self.client.get(reverse("caidapp:observations"), {"group": "sequence", "sort": "captured_desc"})
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["group_by"], "sequence")
         self.assertEqual(response.context["sort_by"], "captured_desc")
         self.assertEqual(response.context["observation_groups"][0]["observations"][0].id, newer.id)
         self.assertEqual(response.context["observation_groups"][1]["observations"][0].id, older.id)
