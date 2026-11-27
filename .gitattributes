@@ -1,1 +1,2 @@
 *.sh text eol=lf
+src/identification_worker/sam3-best-mask.patch text eol=lf

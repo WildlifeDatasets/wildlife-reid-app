@@ -38,6 +38,9 @@ RUN echo "------- SAM (pinned, just to be sure) --------"
 RUN pip install git+https://github.com/facebookresearch/segment-anything.git@dca509fe793f601edb92606367a655c15ac00fdf
 
 RUN pip install git+https://github.com/facebookresearch/sam3.git@46957e47805eaa273f4aa7bbbd25a88bca9108ce
+COPY ./src/identification_worker/sam3-best-mask.patch /tmp/sam3-best-mask.patch
+RUN cd "$(python -c 'from importlib.metadata import distribution; print(distribution("sam3").locate_file(""))')" && \
+    git apply /tmp/sam3-best-mask.patch
 # SAM3 weights are downloaded at runtime via HF_TOKEN (see download_sam3_checkpoint_if_missing)
 
 RUN echo "------- wildlife-tools (pinned, no-deps) --------"

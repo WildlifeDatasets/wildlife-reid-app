@@ -1,0 +1,18 @@
+diff --git a/sam3/model/sam3_image_processor.py b/sam3/model/sam3_image_processor.py
+--- a/sam3/model/sam3_image_processor.py
++++ b/sam3/model/sam3_image_processor.py
+@@ -198,7 +198,13 @@
+         keep = out_probs > self.confidence_threshold
+         out_probs = out_probs[keep]
+         out_masks = out_masks[keep]
+         out_bbox = out_bbox[keep]
+-
++        # Identification only uses the highest-scoring mask. Select it before upsampling.
++        if out_probs.numel():
++            best = out_probs.argmax().reshape(1)
++            out_probs = out_probs[best]
++            out_masks = out_masks[best]
++            out_bbox = out_bbox[best]
++
+         # convert to [x0, y0, x1, y1] format
+         boxes = box_ops.box_cxcywh_to_xyxy(out_bbox)
