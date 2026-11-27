@@ -72,6 +72,30 @@
             background-size: cover;
             background-position: center;
         }
+        .identification-refresh-circle {
+            --refresh-angle: 0deg;
+            --refresh-section: 60deg;
+            display: inline-grid;
+            place-items: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            flex: none;
+            border-radius: 50%;
+            color: var(--bs-emphasis-color);
+            background:
+                radial-gradient(circle, var(--bs-body-bg) 56%, transparent 58%),
+                repeating-conic-gradient(transparent 0 calc(var(--refresh-section) - 3deg),
+                    var(--bs-body-bg) calc(var(--refresh-section) - 3deg) var(--refresh-section)),
+                conic-gradient(var(--bs-primary) var(--refresh-angle), var(--bs-secondary-bg) 0);
+            font-size: .75rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .identification-refresh-circle:hover,
+        .identification-refresh-circle:focus-visible {
+            outline: 2px solid var(--bs-primary);
+            outline-offset: 2px;
+        }
     </style>
     <!--refresh every 120 s-->
     {#<meta http-equiv="refresh" content="120">#}
@@ -91,9 +115,8 @@
 
 
             </div>
-            <div>
-
-                <div class="dropdown d-inline-block">
+            <div class="d-flex align-items-center justify-content-end flex-wrap gap-2 mb-3">
+                <div class="dropdown">
                     <button class="btn btn-secondary" type="button" data-bs-toggle="dropdown"
                             data-bs-auto-close="outside" aria-expanded="false" aria-label="Identification actions">
                         <i class="bi bi-three-dots" aria-hidden="true"></i>
@@ -209,7 +232,7 @@
                 </div>
 
                 {% if user.caiduser.workgroup_admin %}
-                    <form id="identification-refresh-controls" method="post" class="d-inline"
+                    <form id="identification-refresh-controls" method="post"
                           action="{% url 'caidapp:manage_workgroup_embeddings' %}">
                         {% csrf_token %}
                         <input type="hidden" name="dashboard" value="yes">
@@ -224,6 +247,18 @@
                         </button>
                     </form>
                 {% endif %}
+                {% with status=refresh_progress.status message=refresh_progress.message step=refresh_progress.step total=refresh_progress.total_steps %}
+                    <a id="identification-refresh-progress"
+                       class="identification-refresh-circle {% if not refresh_progress %}d-none{% endif %}"
+                       data-progress-url="{% url 'caidapp:identification_progress_api' %}?scope=refresh"
+                       data-task-list-url="{% url 'caidapp:task_list' %}"
+                       href="{% if refresh_progress %}{% url 'caidapp:task_detail' refresh_progress.uuid %}{% else %}{% url 'caidapp:task_list' %}{% endif %}"
+                       title="{% if step %}Step {{ step }} of {{ total }} · {% endif %}{{ message }}"
+                       aria-label="Refresh task details. {% if step %}Step {{ step }} of {{ total }} · {% endif %}{{ message }}"
+                       style="--refresh-angle: {% if status == 'succeeded' or status == 'partial' %}360{% elif step %}{% widthratio step total 360 %}{% else %}0{% endif %}deg; --refresh-section: {% if total %}{% widthratio 1 total 360 %}{% else %}60{% endif %}deg">
+                        <span aria-hidden="true">{% if refresh_progress.active %}{{ step|default:0 }}/{{ total }}{% elif status == "succeeded" %}✓{% elif status == "cancelled" %}■{% else %}!{% endif %}</span>
+                    </a>
+                {% endwith %}
                 {% if user.caiduser.workgroup_admin %}
                     <a class="btn btn-secondary bs-1" href="{% url 'caidapp:workgroup-update' user.caiduser.workgroup.id %}"><i
                             class="bi bi-gear"></i></a>
@@ -231,18 +266,6 @@
 {#                <a class="btn btn-secondary bs-1" href="{% url 'caidapp:select_reid_model' %}"><i#}
 {#                        class="bi bi-gear"></i></a>#}
             </div>
-        </div>
-        <div id="identification-progress-panel" class="mb-3 {% if not refresh_progress %}d-none{% endif %}"
-             data-progress-url="{% url 'caidapp:identification_progress_api' %}?scope=refresh"
-             data-task-list-url="{% url 'caidapp:task_list' %}">
-            <output id="identification-refresh-status" class="small text-body-secondary">
-                {% if refresh_progress.step %}Step {{ refresh_progress.step }} of {{ refresh_progress.total_steps }} · {% endif %}
-                {{ refresh_progress.message }}
-            </output>
-            <progress id="identification-refresh-progress" class="align-middle ms-2 d-none"
-                      aria-label="Current feature phase progress"></progress>
-            <a id="identification-refresh-task" class="small ms-2"
-               href="{% if refresh_progress %}{% url 'caidapp:task_detail' refresh_progress.uuid %}{% else %}{% url 'caidapp:task_list' %}{% endif %}">Task details</a>
         </div>
         <div class="row">
             <div class="col-md-4">
@@ -589,14 +612,14 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
     <script>
 
         document.addEventListener("DOMContentLoaded", async function pollIdentificationRefresh() {
-            const panel = document.getElementById("identification-progress-panel");
-            if (!panel) return;
+            const indicator = document.getElementById("identification-refresh-progress");
+            if (!indicator) return;
             let interval = 15000;
             try {
-                const response = await fetch(panel.dataset.progressUrl, {cache: "no-store"});
+                const response = await fetch(indicator.dataset.progressUrl, {cache: "no-store"});
                 if (!response.ok) throw new Error("Could not load identification progress");
                 const {refresh} = await response.json();
-                panel.classList.toggle("d-none", !refresh);
+                indicator.classList.toggle("d-none", !refresh);
 
                 const controls = document.getElementById("identification-refresh-controls");
                 if (controls) {
@@ -612,25 +635,28 @@ Run ({{ user.caiduser.workgroup.identification_reid_status }} {{ user.caiduser.w
                     const total = phase?.total;
                     const hasCount = Number.isInteger(total) && total > 0 && Number.isInteger(phase?.completed);
                     if (phase) {
-                        parts.push(hasCount ? `${phase.label} (${phase.completed.toLocaleString()} / ${total.toLocaleString()})` : phase.label);
+                        const percent = hasCount ? Math.floor(100 * phase.completed / total) : null;
+                        parts.push(hasCount
+                            ? `${phase.label} (${percent}% · ${phase.completed.toLocaleString()} / ${total.toLocaleString()})`
+                            : phase.label);
                     } else if (refresh.feature_status === "finalizing") {
                         parts.push("Saving results");
                     } else if (refresh.feature_status === "attention") {
                         parts.push("Status could not be confirmed");
                     }
-                    const status = document.getElementById("identification-refresh-status");
                     const description = parts.join(" · ");
-                    if (status.textContent !== description) status.textContent = description;
-                    const progress = document.getElementById("identification-refresh-progress");
-                    progress.classList.toggle("d-none", !refresh.active);
-                    if (hasCount) {
-                        progress.max = total;
-                        progress.value = phase.completed;
-                    } else {
-                        progress.removeAttribute("value");
+                    const step = refresh.step || 0;
+                    const fullCircle = ["succeeded", "partial"].includes(refresh.status);
+                    indicator.style.setProperty("--refresh-section", `${360 / refresh.total_steps}deg`);
+                    indicator.style.setProperty("--refresh-angle", `${fullCircle ? 360 : 360 * step / refresh.total_steps}deg`);
+                    indicator.firstElementChild.textContent = refresh.active
+                        ? `${step}/${refresh.total_steps}`
+                        : ({succeeded: "✓", cancelled: "■"}[refresh.status] || "!");
+                    if (indicator.title !== description) {
+                        indicator.title = description;
+                        indicator.setAttribute("aria-label", "Refresh task details. " + description);
                     }
-                    document.getElementById("identification-refresh-task").href =
-                        panel.dataset.taskListUrl + refresh.uuid + "/";
+                    indicator.href = indicator.dataset.taskListUrl + refresh.uuid + "/";
                 }
             } catch (error) {
                 console.error(error);

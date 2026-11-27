@@ -79,7 +79,9 @@ class IdentificationProgressApiTest(TestCase):
 
         response = self.client.get(reverse("caidapp:dash_identities"))
 
-        self.assertContains(response, 'id="identification-refresh-progress"')
+        self.assertContains(response, '<a id="identification-refresh-progress"')
+        self.assertContains(response, "--refresh-angle: 60deg")
+        self.assertContains(response, ">1/6</span>")
         self.assertContains(response, "Step 1 of 6")
         self.assertContains(response, reverse("caidapp:task_detail", args=[run.uuid]))
 
